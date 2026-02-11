@@ -68,6 +68,7 @@ result = list_events(
 - `time_max` (opcional): Data maxima no formato RFC3339
 - `query` (opcional): Texto para pesquisar no titulo/descricao
 - `max_results` (opcional): Numero maximo de eventos (default: 10, max: 100)
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 2. Obter Detalhes de um Evento
 
@@ -96,6 +97,7 @@ if result.get('status') == 'success':
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
 - `event_id` (obrigatorio): ID do evento a obter
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 3. Criar Evento
 
@@ -153,6 +155,8 @@ if result.get('status') == 'success':
 - `attendees` (opcional): Lista de emails dos participantes
 - `add_conference` (opcional): Se True, cria link de videoconferencia (Google Meet ou Teams)
 
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
+
 **Nota:** E obrigatorio fornecer (start_date_time + end_date_time) OU (start_date + end_date).
 
 ### 4. Atualizar Evento
@@ -197,6 +201,7 @@ result = update_event(
 - `location` (opcional): Nova localizacao
 - `start_date_time` (opcional): Novo inicio em RFC3339
 - `end_date_time` (opcional): Novo fim em RFC3339
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 5. Apagar Evento
 
@@ -218,6 +223,7 @@ if result.get('status') == 'success':
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
 - `event_id` (obrigatorio): ID do evento a apagar
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ## Workflow Tipico
 
@@ -325,14 +331,28 @@ if result.get('status') == 'success':
 }
 ```
 
-### Create/Update Result:
+### Create Result (de create_event):
 ```python
 {
     "status": "success",
     "event_id": "evt-xyz789",
     "html_link": "https://...",
     "hangout_link": "https://meet.google.com/...",  # Se add_conference=True
-    "message": "Event created successfully with video conference link"
+    "message": "Evento criado com sucesso com link de videoconferencia"
+}
+```
+
+### Update Result (de update_event):
+```python
+{
+    "status": "success",
+    "event": {
+        "id": "evt-xyz789",
+        "summary": "Novo titulo",
+        "start": {"dateTime": "2025-01-20T14:00:00Z"},
+        "end": {"dateTime": "2025-01-20T15:00:00Z"}
+    },
+    "message": "Evento atualizado com sucesso"
 }
 ```
 

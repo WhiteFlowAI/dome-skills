@@ -74,6 +74,7 @@ result = list_files(
 - `query` (opcional): Texto para pesquisar no nome dos ficheiros
 - `limit` (opcional): Numero maximo de ficheiros (default: 20)
 - `sort_by` (opcional): Ordenacao (ex: 'modifiedTime desc', 'name')
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 2. Obter Metadados de um Ficheiro
 
@@ -100,6 +101,7 @@ if result.get('status') == 'success':
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
 - `file_id` (obrigatorio): ID do ficheiro
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 3. Ler Conteudo de um Ficheiro
 
@@ -121,6 +123,7 @@ if result.get('status') == 'success':
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
 - `file_id` (obrigatorio): ID do ficheiro a ler
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 4. Criar Ficheiro
 
@@ -155,6 +158,7 @@ result = create_file(
 - `content` (obrigatorio): Conteudo do ficheiro
 - `folder_id` (opcional): ID da pasta destino (default: raiz)
 - `content_type` (opcional): MIME type (default: 'text/plain')
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 5. Atualizar Conteudo de um Ficheiro
 
@@ -178,6 +182,7 @@ if result.get('status') == 'success':
 - `user_id` (obrigatorio): ID do utilizador
 - `file_id` (obrigatorio): ID do ficheiro a atualizar
 - `content` (obrigatorio): Novo conteudo do ficheiro
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 6. Apagar Ficheiro
 
@@ -199,6 +204,7 @@ if result.get('status') == 'success':
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
 - `file_id` (obrigatorio): ID do ficheiro a apagar
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 7. Criar Pasta
 
@@ -228,6 +234,7 @@ result = create_folder(
 - `user_id` (obrigatorio): ID do utilizador
 - `name` (obrigatorio): Nome da pasta
 - `folder_id` (opcional): ID da pasta pai (default: raiz)
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ## Workflow Tipico
 
@@ -326,12 +333,22 @@ if folder_result.get('status') == 'success':
 }
 ```
 
-### Create/Update Result:
+### Create Result (de create_file):
 ```python
 {
     "status": "success",
     "file_id": "file-xyz789",
+    "name": "notas.md",
     "message": "Ficheiro criado com sucesso"
+}
+```
+
+### Update Result (de update_file):
+```python
+{
+    "status": "success",
+    "file_id": "file-xyz789",
+    "message": "Ficheiro atualizado com sucesso"
 }
 ```
 

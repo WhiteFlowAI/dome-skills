@@ -62,6 +62,7 @@ result = list_emails(
 - `from_email` (opcional): Filtrar por endereco do remetente
 - `since` (opcional): Data no formato YYYY-MM-DD
 - `limit` (opcional): Numero maximo de emails (default: 10, max: 50)
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 2. Obter Detalhes de um Email
 
@@ -88,6 +89,7 @@ if result.get('status') == 'success':
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
 - `email_id` (obrigatorio): ID do email a obter
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ### 3. Enviar Email
 
@@ -131,6 +133,7 @@ result = send_email(
 - `subject` (obrigatorio): Assunto do email
 - `body_text` (opcional): Corpo em texto simples
 - `body_html` (opcional): Corpo em HTML
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 - Pelo menos um de `body_text` ou `body_html` e obrigatorio
 
 ### 4. Pesquisar Emails
@@ -157,6 +160,7 @@ if result.get('status') == 'success':
 - `user_id` (obrigatorio): ID do utilizador
 - `query` (obrigatorio): Texto para pesquisar
 - `limit` (opcional): Numero maximo de resultados (default: 10)
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
 ## Workflow Tipico
 
