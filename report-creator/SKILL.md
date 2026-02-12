@@ -19,16 +19,43 @@ Use esta skill quando o utilizador pedir:
 
 ### 1. Recolher Dados
 
-Antes de escrever, le TODOS os outputs dos steps anteriores:
+Antes de escrever, le TODOS os dados dos steps anteriores. Os dados estao organizados em dois tipos de ficheiros:
+
+**a) Dados estruturados — `steps.json`**
 
 ```bash
-ls {execution_dir}/
-cat {execution_dir}/step_001_output.md
-cat {execution_dir}/step_002_output.md
+cat {execution_dir}/steps.json
 ```
 
-- Le TODOS os ficheiros step_NNN_output.md disponiveis
-- Identifica dados concretos: IDs, valores, listas, metricas
+Este ficheiro contem TODOS os steps com: IDs recolhidos, metricas, items, ferramentas usadas, duracao e estado. Estrutura por step:
+- `ids` — listas de IDs (ex: `contract_ids`, `email_ids`)
+- `metrics` — valores numericos (ex: `total`, `count`)
+- `items` — lista de objectos com dados detalhados (contratos, emails, etc.)
+- `key_values` — outros pares chave-valor extraidos
+- `status` — "completed" ou "failed"
+- `summary` — resumo do step
+
+**b) Relatorios narrativos — `step_NNN_report.md`**
+
+```bash
+cat {execution_dir}/step_001_report.md
+cat {execution_dir}/step_002_report.md
+```
+
+Cada step tem um mini-relatorio com contexto e analise do que foi executado.
+
+**c) Dados overflow (se existirem) — `step_NNN_items.json`**
+
+Se um step recolheu muitos items (>20), os detalhes completos estao num ficheiro separado:
+
+```bash
+cat {execution_dir}/step_001_items.json
+```
+
+**Processo:**
+- Le SEMPRE `steps.json` primeiro — e a fonte principal de dados
+- Le os `step_NNN_report.md` para contexto narrativo
+- Verifica se existem `step_NNN_items.json` para dados completos
 - NAO comeces a escrever sem ter lido todos os dados
 
 ### 2. Estruturar o Relatorio
@@ -74,8 +101,9 @@ file_write(path="relatorio.md", content="# Titulo...\n\n...")
 ### Dados
 - Inclui TODOS os dados recolhidos - nunca omitas registos ou linhas
 - Usa tabelas markdown para dados tabulares (contratos, metricas, listas)
-- NAO inventes dados - usa apenas o que foi recolhido nos steps anteriores
-- Se um step falhou ou nao tem dados, menciona isso no relatorio
+- NAO inventes dados - usa apenas o que esta em `steps.json` e nos ficheiros de report/overflow
+- Se um step tem `status: "failed"` em `steps.json`, menciona isso no relatorio
+- Usa os `items` de `steps.json` (ou `step_NNN_items.json` para overflow) como fonte de dados para tabelas
 
 ### Formatacao
 - Escreve em Portugues de Portugal
@@ -105,5 +133,5 @@ file_write(path="relatorio.md", content="# Titulo...\n\n...")
 ## Limitacoes
 
 - O relatorio e gerado em formato markdown
-- Dados dependem da qualidade dos outputs dos steps anteriores
+- Dados dependem da qualidade dos dados em steps.json e mini-reports
 - Graficos e visualizacoes nao sao suportados (apenas tabelas markdown)
