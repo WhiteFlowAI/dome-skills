@@ -343,10 +343,11 @@ def send_email(
     subject: str,
     body_text: Optional[str] = None,
     body_html: Optional[str] = None,
+    attachments: Optional[List[Dict[str, str]]] = None,
     tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Envia um email.
+    Envia um email, opcionalmente com anexos.
 
     Args:
         user_id: ID do utilizador
@@ -354,6 +355,11 @@ def send_email(
         subject: Assunto do email
         body_text: Corpo em texto simples (opcional se body_html fornecido)
         body_html: Corpo em HTML (opcional se body_text fornecido)
+        attachments: Lista de anexos do workspace S3 (opcional).
+                     Cada anexo e um dict com:
+                       - task_id (str): ID da task que gerou o ficheiro
+                       - file_path (str): Caminho do ficheiro no workspace
+                       - filename (str, opcional): Nome para o anexo no email
         tenant_id: ID do tenant (opcional)
 
     Returns:
@@ -365,6 +371,22 @@ def send_email(
             to=["dest@email.pt"],
             subject="Assunto",
             body_text="Conteudo do email"
+        )
+
+        # Com anexos
+        result = send_email(
+            user_id="user-123",
+            to=["dest@email.pt"],
+            subject="Relatorio Mensal",
+            body_text="Segue em anexo o relatorio.",
+            attachments=[
+                {
+                    "task_id": "task-456",
+                    "file_path": "reports/relatorio.pdf",
+                    "filename": "relatorio-janeiro.pdf"
+                }
+            ],
+            tenant_id="tenant-789"
         )
     """
     # Validacoes
@@ -389,6 +411,16 @@ def send_email(
             "message": "Pelo menos body_text ou body_html e obrigatorio",
         }
 
+    # Validar attachments
+    if attachments:
+        for att in attachments:
+            if not att.get("task_id") or not att.get("file_path"):
+                return {
+                    "status": "error",
+                    "error_code": "INVALID_REQUEST",
+                    "message": "Cada anexo requer 'task_id' e 'file_path'",
+                }
+
     # Construir body do request
     request_body = {
         "to": to,
@@ -396,6 +428,9 @@ def send_email(
         "bodyText": body_text,
         "bodyHtml": body_html,
     }
+
+    if attachments:
+        request_body["attachments"] = attachments
 
     result = _make_post_request(
         path="/internal/email/send",
