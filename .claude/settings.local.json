@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "WebFetch(domain:www.base.gov.pt)",
+      "WebSearch",
+      "Bash(curl:*)"
+    ]
+  }
+}

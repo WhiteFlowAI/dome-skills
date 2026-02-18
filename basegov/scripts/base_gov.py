@@ -32,7 +32,11 @@ BASE_URL = "https://www.base.gov.pt/Base4/pt/resultados/"
 API_VERSION = "139.0"
 DEFAULT_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "User-Agent": "Mozilla/5.0 (compatible; BaseGovTool/1.0)",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+    "Origin": "https://www.base.gov.pt",
+    "Referer": "https://www.base.gov.pt/Base4/pt/pesquisa/?type=contratos",
+    "Accept": "text/plain, */*; q=0.01",
+    "Cookie": "ACCEPTED_TERMS=true",
 }
 TIMEOUT_SECONDS = 60
 MAX_PAGE_SIZE = 50
