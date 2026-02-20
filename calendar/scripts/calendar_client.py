@@ -616,6 +616,83 @@ def delete_event(
 
 
 # =============================================================================
+# TOOL 6: RESPONDER A CONVITE DE EVENTO
+# =============================================================================
+
+def respond_to_event(
+    user_id: str,
+    event_id: str,
+    response: str,
+    tenant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Responde a um convite de evento no calendario (aceitar, recusar ou tentativa).
+
+    Args:
+        user_id: ID do utilizador
+        event_id: ID do evento ao qual responder
+        response: Tipo de resposta. Valores validos:
+                  - "accepted" (aceitar)
+                  - "declined" (recusar)
+                  - "tentative" (talvez)
+        tenant_id: ID do tenant (opcional)
+
+    Returns:
+        Dicionario com resultado da operacao
+
+    Exemplo:
+        # Aceitar um convite
+        result = respond_to_event("user-123", "evt-abc123", "accepted")
+
+        # Recusar um convite
+        result = respond_to_event("user-123", "evt-abc123", "declined")
+
+        # Responder como tentativa
+        result = respond_to_event("user-123", "evt-abc123", "tentative")
+    """
+    if not event_id:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "event_id e obrigatorio",
+        }
+
+    valid_responses = {"accepted", "declined", "tentative"}
+    response_lower = response.lower() if response else ""
+    if response_lower not in valid_responses:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "response deve ser 'accepted', 'declined' ou 'tentative'. Recebido: '{}'".format(response),
+        }
+
+    # URL encode do event_id para seguranca
+    safe_event_id = quote(event_id, safe='')
+
+    request_body = {
+        "responseStatus": response_lower,
+    }
+
+    result = _make_post_request(
+        path="/internal/calendar/events/{}/respond".format(safe_event_id),
+        user_id=user_id,
+        body=request_body,
+        tenant_id=tenant_id,
+    )
+
+    if result.get("status") == "error":
+        return result
+
+    event_data = result.get("data", {})
+
+    return {
+        "status": "success",
+        "message": "Resposta '{}' enviada para o evento".format(response_lower),
+        "event": event_data,
+    }
+
+
+# =============================================================================
 # INTERFACE DE EXECUCAO (para uso direto via terminal ou por agente)
 # =============================================================================
 
@@ -644,6 +721,8 @@ def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
         "calendar_update_event": update_event,
         "delete_event": delete_event,
         "calendar_delete_event": delete_event,
+        "respond_to_event": respond_to_event,
+        "calendar_respond_to_event": respond_to_event,
     }
 
     if tool_name not in tools:

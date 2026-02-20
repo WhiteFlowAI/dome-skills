@@ -24,7 +24,7 @@ Importa o modulo e usa as funcoes. O skill usa `requests` (sincrono).
 ```python
 import sys
 sys.path.insert(0, "/var/cache/skills/email")
-from email_client import list_emails, get_email_detail, send_email, search_emails
+from email_client import list_emails, get_email_detail, send_email, create_draft, send_draft, search_emails
 ```
 
 ## Operacoes Disponiveis
@@ -166,7 +166,75 @@ result = send_email(
 - `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 - Pelo menos um de `body_text` ou `body_html` e obrigatorio
 
-### 4. Pesquisar Emails
+### 4. Criar Rascunho de Email
+
+```python
+import sys
+sys.path.insert(0, "/var/cache/skills/email")
+from email_client import create_draft
+
+# Criar rascunho simples
+result = create_draft(
+    user_id="user-123",
+    to=["destinatario@exemplo.pt"],
+    subject="Proposta de Reuniao",
+    body_text="Boa tarde, gostaria de agendar uma reuniao para discutir o projeto."
+)
+
+if result.get('status') == 'success':
+    print(f"Rascunho criado! ID: {result.get('draft_id')}")
+
+# Rascunho como resposta a um email
+result = create_draft(
+    user_id="user-123",
+    to=["remetente@exemplo.pt"],
+    subject="Re: Proposta",
+    body_text="Obrigado pela proposta. Vou analisar e respondo em breve.",
+    reply_to_id="msg-abc123"
+)
+```
+
+**Parametros:**
+- `user_id` (obrigatorio): ID do utilizador
+- `to` (obrigatorio): Lista de destinatarios
+- `subject` (obrigatorio): Assunto do email
+- `body_text` (opcional): Corpo em texto simples
+- `body_html` (opcional): Corpo em HTML
+- `reply_to_id` (opcional): ID do email ao qual se esta a responder
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
+- Pelo menos um de `body_text` ou `body_html` e obrigatorio
+
+### 5. Enviar Rascunho Existente
+
+```python
+import sys
+sys.path.insert(0, "/var/cache/skills/email")
+from email_client import create_draft, send_draft
+
+# Primeiro criar o rascunho
+draft = create_draft(
+    user_id="user-123",
+    to=["dest@exemplo.pt"],
+    subject="Relatorio",
+    body_text="Segue o relatorio mensal."
+)
+
+# Depois enviar o rascunho
+if draft.get('status') == 'success':
+    result = send_draft(
+        user_id="user-123",
+        draft_id=draft['draft_id']
+    )
+    if result.get('status') == 'success':
+        print(f"Rascunho enviado! ID: {result.get('message_id')}")
+```
+
+**Parametros:**
+- `user_id` (obrigatorio): ID do utilizador
+- `draft_id` (obrigatorio): ID do rascunho (obtido de create_draft)
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
+
+### 6. Pesquisar Emails
 
 ```python
 import sys
@@ -229,6 +297,9 @@ if emails.get('status') == 'success' and emails.get('emails'):
 - "Envia o relatorio por email para o cliente"
 - "Quais emails recebi esta semana?"
 - "Le o ultimo email que recebi"
+- "Cria um rascunho de email para o cliente sobre o orcamento"
+- "Prepara um rascunho de resposta a este email"
+- "Envia o rascunho que criaste"
 
 ## Estrutura de Dados
 
@@ -276,7 +347,16 @@ if emails.get('status') == 'success' and emails.get('emails'):
 }
 ```
 
-### Send Result (de send_email):
+### Draft Result (de create_draft):
+```python
+{
+    "status": "success",
+    "draft_id": "draft-abc123",
+    "message": "Rascunho criado com sucesso..."
+}
+```
+
+### Send Result (de send_email ou send_draft):
 ```python
 {
     "status": "success",

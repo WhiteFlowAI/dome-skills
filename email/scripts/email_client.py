@@ -452,7 +452,161 @@ def send_email(
 
 
 # =============================================================================
-# TOOL 4: PESQUISAR EMAILS (wrapper de list_emails)
+# TOOL 4: CRIAR RASCUNHO DE EMAIL
+# =============================================================================
+
+def create_draft(
+    user_id: str,
+    to: List[str],
+    subject: str,
+    body_text: Optional[str] = None,
+    body_html: Optional[str] = None,
+    reply_to_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Cria um rascunho de email que o utilizador pode editar e enviar depois.
+
+    Args:
+        user_id: ID do utilizador
+        to: Lista de destinatarios (emails)
+        subject: Assunto do email
+        body_text: Corpo em texto simples (opcional se body_html fornecido)
+        body_html: Corpo em HTML (opcional se body_text fornecido)
+        reply_to_id: ID do email ao qual se esta a responder (opcional)
+        tenant_id: ID do tenant (opcional)
+
+    Returns:
+        Dicionario com dados do rascunho criado
+
+    Exemplo:
+        result = create_draft(
+            user_id="user-123",
+            to=["dest@email.pt"],
+            subject="Proposta de Reuniao",
+            body_text="Boa tarde, gostaria de agendar uma reuniao."
+        )
+
+        # Rascunho de resposta a um email
+        result = create_draft(
+            user_id="user-123",
+            to=["remetente@email.pt"],
+            subject="Re: Proposta",
+            body_text="Obrigado pela proposta.",
+            reply_to_id="msg-abc123"
+        )
+    """
+    # Validacoes
+    if not to or len(to) == 0:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "Lista de destinatarios (to) nao pode estar vazia",
+        }
+
+    if not subject:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "Assunto (subject) e obrigatorio",
+        }
+
+    if not body_text and not body_html:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "Pelo menos body_text ou body_html e obrigatorio",
+        }
+
+    # Construir body do request
+    request_body = {
+        "to": to,
+        "subject": subject,
+        "bodyText": body_text,
+        "bodyHtml": body_html,
+        "replyToId": reply_to_id,
+    }
+
+    result = _make_post_request(
+        path="/internal/email/drafts",
+        user_id=user_id,
+        body=request_body,
+        tenant_id=tenant_id,
+    )
+
+    if result.get("status") == "error":
+        return result
+
+    draft_data = result.get("data", {})
+
+    return {
+        "status": "success",
+        "draft_id": draft_data.get("id"),
+        "message": "Rascunho criado com sucesso. O utilizador pode editar e enviar a partir do cliente de email.",
+    }
+
+
+# =============================================================================
+# TOOL 5: ENVIAR RASCUNHO EXISTENTE
+# =============================================================================
+
+def send_draft(
+    user_id: str,
+    draft_id: str,
+    tenant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Envia um email a partir de um rascunho existente.
+
+    Args:
+        user_id: ID do utilizador
+        draft_id: ID do rascunho a enviar (obtido de create_draft)
+        tenant_id: ID do tenant (opcional)
+
+    Returns:
+        Dicionario com resultado do envio
+
+    Exemplo:
+        # Primeiro criar o rascunho
+        draft = create_draft(user_id="user-123", to=["dest@email.pt"], subject="Teste", body_text="Ola")
+        draft_id = draft.get("draft_id")
+
+        # Depois enviar
+        result = send_draft(user_id="user-123", draft_id=draft_id)
+    """
+    if not draft_id:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "draft_id e obrigatorio",
+        }
+
+    request_body = {
+        "draftId": draft_id,
+    }
+
+    result = _make_post_request(
+        path="/internal/email/send",
+        user_id=user_id,
+        body=request_body,
+        tenant_id=tenant_id,
+    )
+
+    if result.get("status") == "error":
+        return result
+
+    send_data = result.get("data", {})
+
+    return {
+        "status": "success",
+        "message_id": send_data.get("id"),
+        "provider": send_data.get("provider"),
+        "message": "Rascunho enviado com sucesso",
+    }
+
+
+# =============================================================================
+# TOOL 6: PESQUISAR EMAILS (wrapper de list_emails)
 # =============================================================================
 
 def search_emails(
@@ -517,6 +671,10 @@ def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
         "email_get_email": get_email_detail,
         "send_email": send_email,
         "email_send_email": send_email,
+        "create_draft": create_draft,
+        "email_create_draft": create_draft,
+        "send_draft": send_draft,
+        "email_send_draft": send_draft,
         "search_emails": search_emails,
         "email_search_emails": search_emails,
     }

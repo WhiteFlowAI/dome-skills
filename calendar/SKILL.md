@@ -24,7 +24,7 @@ Importa o modulo e usa as funcoes. O skill usa `requests` (sincrono).
 ```python
 import sys
 sys.path.insert(0, "/var/cache/skills/calendar")
-from calendar_client import list_events, get_event_detail, create_event, update_event, delete_event
+from calendar_client import list_events, get_event_detail, create_event, update_event, delete_event, respond_to_event
 ```
 
 ## Operacoes Disponiveis
@@ -225,6 +225,44 @@ if result.get('status') == 'success':
 - `event_id` (obrigatorio): ID do evento a apagar
 - `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 
+### 6. Responder a Convite de Evento
+
+```python
+import sys
+sys.path.insert(0, "/var/cache/skills/calendar")
+from calendar_client import respond_to_event
+
+# Aceitar um convite
+result = respond_to_event(
+    user_id="user-123",
+    event_id="evt-abc123",
+    response="accepted"
+)
+
+if result.get('status') == 'success':
+    print("Convite aceite!")
+
+# Recusar um convite
+result = respond_to_event(
+    user_id="user-123",
+    event_id="evt-abc123",
+    response="declined"
+)
+
+# Responder como tentativa
+result = respond_to_event(
+    user_id="user-123",
+    event_id="evt-abc123",
+    response="tentative"
+)
+```
+
+**Parametros:**
+- `user_id` (obrigatorio): ID do utilizador
+- `event_id` (obrigatorio): ID do evento ao qual responder
+- `response` (obrigatorio): Tipo de resposta - "accepted", "declined" ou "tentative"
+- `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
+
 ## Workflow Tipico
 
 ### Ver agenda e criar reuniao:
@@ -277,6 +315,9 @@ if result.get('status') == 'success':
 - "Cancela o evento de amanha"
 - "Estou livre na quarta de manha?"
 - "Marca uma reuniao com videoconferencia"
+- "Aceita o convite da reuniao de amanha"
+- "Recusa o evento das 14h"
+- "Responde talvez ao convite do Joao"
 
 ## Estrutura de Dados
 
