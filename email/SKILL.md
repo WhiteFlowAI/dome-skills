@@ -126,33 +126,22 @@ result = send_email(
     body_html="<p>Versao HTML para clientes modernos</p>"
 )
 
-# Enviar com anexos (ficheiros do workspace S3)
+# Enviar com anexos (usando file IDs - formato RECOMENDADO)
 result = send_email(
     user_id="user-123",
     to=["destinatario@exemplo.pt"],
     subject="Relatorio Mensal",
     body_text="Segue em anexo o relatorio solicitado.",
-    attachments=[
-        {
-            "task_id": "task-456",
-            "file_path": "reports/relatorio.pdf",
-            "filename": "relatorio-janeiro.pdf"
-        }
-    ],
-    tenant_id="tenant-789"
+    attachments=["01bb47ef-c92b-401c-8b3b-376cb1215323"]
 )
 
-# Enviar com multiplos anexos
+# Enviar com multiplos anexos (file IDs)
 result = send_email(
     user_id="user-123",
     to=["destinatario@exemplo.pt"],
     subject="Documentos do Projeto",
     body_html="<p>Seguem os documentos em anexo.</p>",
-    attachments=[
-        {"task_id": "task-456", "file_path": "docs/proposta.pdf"},
-        {"task_id": "task-456", "file_path": "data/dados.csv", "filename": "dados-projeto.csv"}
-    ],
-    tenant_id="tenant-789"
+    attachments=["file-id-1", "file-id-2"]
 )
 ```
 
@@ -162,7 +151,7 @@ result = send_email(
 - `subject` (obrigatorio): Assunto do email
 - `body_text` (opcional): Corpo em texto simples
 - `body_html` (opcional): Corpo em HTML
-- `attachments` (opcional): Lista de anexos do workspace S3 (ver abaixo)
+- `attachments` (opcional): Lista de file IDs (strings) dos ficheiros a anexar
 - `tenant_id` (opcional): ID do tenant para ambientes multi-tenant
 - Pelo menos um de `body_text` ou `body_html` e obrigatorio
 
@@ -338,13 +327,13 @@ if emails.get('status') == 'success' and emails.get('emails'):
 }
 ```
 
-### Attachment (para send_email):
+### Attachments (para send_email):
 ```python
-{
-    "task_id": "task-456",          # ID da task que gerou o ficheiro (obrigatorio)
-    "file_path": "reports/rel.pdf", # Caminho no workspace S3 (obrigatorio)
-    "filename": "relatorio.pdf"     # Nome do anexo no email (opcional, usa file_path se omitido)
-}
+# Formato RECOMENDADO: lista de file IDs (strings)
+attachments = ["01bb47ef-c92b-401c-8b3b-376cb1215323", "outro-file-id"]
+
+# Formato legacy (tambem aceite): lista de dicts
+attachments = [{"task_id": "task-456", "file_path": "reports/rel.pdf"}]
 ```
 
 ### Draft Result (de create_draft):

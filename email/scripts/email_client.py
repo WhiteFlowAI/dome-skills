@@ -343,7 +343,7 @@ def send_email(
     subject: str,
     body_text: Optional[str] = None,
     body_html: Optional[str] = None,
-    attachments: Optional[List[Dict[str, str]]] = None,
+    attachments: Optional[List] = None,
     tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -355,11 +355,9 @@ def send_email(
         subject: Assunto do email
         body_text: Corpo em texto simples (opcional se body_html fornecido)
         body_html: Corpo em HTML (opcional se body_text fornecido)
-        attachments: Lista de anexos do workspace S3 (opcional).
-                     Cada anexo e um dict com:
-                       - task_id (str): ID da task que gerou o ficheiro
-                       - file_path (str): Caminho do ficheiro no workspace
-                       - filename (str, opcional): Nome para o anexo no email
+        attachments: Lista de anexos (opcional). Aceita dois formatos:
+                     - Lista de file IDs (strings): ["uuid-1", "uuid-2"]
+                     - Lista de dicts legacy: [{"task_id": "...", "file_path": "..."}]
         tenant_id: ID do tenant (opcional)
 
     Returns:
@@ -411,14 +409,33 @@ def send_email(
             "message": "Pelo menos body_text ou body_html e obrigatorio",
         }
 
-    # Validar attachments
+    # Normalizar e validar attachments
+    # Aceita tanto file IDs (strings) como dicts com task_id/file_path
+    normalized_attachments = None
     if attachments:
+        normalized_attachments = []
         for att in attachments:
-            if not att.get("task_id") or not att.get("file_path"):
+            if isinstance(att, str):
+                # File ID direto - o BFF resolve via dome.files
+                normalized_attachments.append(att)
+            elif isinstance(att, dict):
+                if att.get("task_id") and att.get("file_path"):
+                    # Formato legacy com task_id/file_path
+                    normalized_attachments.append(att)
+                elif att.get("file_id"):
+                    # Dict com file_id - extrair como string
+                    normalized_attachments.append(att["file_id"])
+                else:
+                    return {
+                        "status": "error",
+                        "error_code": "INVALID_REQUEST",
+                        "message": "Cada anexo deve ser um file ID (string) ou dict com 'task_id' e 'file_path'",
+                    }
+            else:
                 return {
                     "status": "error",
                     "error_code": "INVALID_REQUEST",
-                    "message": "Cada anexo requer 'task_id' e 'file_path'",
+                    "message": f"Formato de anexo invalido: esperado string ou dict, recebido {type(att).__name__}",
                 }
 
     # Construir body do request
@@ -429,8 +446,8 @@ def send_email(
         "bodyHtml": body_html,
     }
 
-    if attachments:
-        request_body["attachments"] = attachments
+    if normalized_attachments:
+        request_body["attachments"] = normalized_attachments
 
     result = _make_post_request(
         path="/internal/email/send",
