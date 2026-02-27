@@ -21,6 +21,39 @@ Use esta skill quando o utilizador perguntar sobre:
 - Agendar uma tarefa para uma data especifica
 - Organizar trabalho ou ver o que falta fazer
 
+## REGRAS IMPORTANTES para Criar Tarefas
+
+Ao criar uma tarefa, o agente deve ser **autonomo** e **nao pedir campos desnecessarios** ao utilizador:
+
+1. **Descricao (description)**: O unico campo que o utilizador deve fornecer e o que quer que seja feito. O agente deve melhorar, desenvolver e enriquecer esse texto para servir como descricao da tarefa.
+2. **Titulo (title)**: **NAO pedir ao utilizador.** O titulo e gerado automaticamente pelo sistema a partir da descricao. Pode ser enviado como opcional apenas se o agente quiser sugerir um titulo mais curto.
+3. **Tipo (type)**: **NAO pedir ao utilizador.** Usar SEMPRE `'default'`.
+4. **Prioridade (priority)**: **NAO pedir ao utilizador.** Usar SEMPRE `'medium'` por defeito.
+5. **Kanban column**: **NAO pedir ao utilizador.** Usar o default `'backlog'`.
+
+**Resumo**: Quando o utilizador diz "cria uma tarefa para X", o agente deve imediatamente criar a tarefa usando a descricao fornecida (enriquecida), sem perguntar titulo, tipo, prioridade ou qualquer outro campo. Agir de forma rapida e autonoma.
+
+## REGRA CRITICA: Reutilizar Resultados de Tarefas Anteriores
+
+Antes de criar uma nova tarefa para algo que pode ja ter sido feito, o agente **DEVE** verificar tarefas anteriores:
+
+1. **Verificar tarefas concluidas**: Chamar `list_tasks(user_id=..., status='completed')` para ver se ja existe uma tarefa relevante
+2. **Obter output da tarefa**: Se encontrar uma tarefa relevante, chamar `get_task_output(user_id=..., task_id=...)` para obter o resultado
+3. **Reutilizar o conteudo**: Se o output tiver `content`, usar esse conteudo diretamente sem re-executar a tarefa
+4. **Informar o utilizador**: Se necessario, explicar que esta a usar os resultados de uma tarefa anterior
+
+**Exemplo pratico**:
+- Utilizador pede: "Vai buscar os meus emails" → Cria tarefa, executa, guarda output
+- Utilizador pede: "Faz um resumo dos emails" → **NAO criar nova tarefa para buscar emails!** Em vez disso:
+  1. Chamar `list_tasks(status='completed')` → Encontrar a tarefa de emails
+  2. Chamar `get_task_output(task_id=...)` → Obter o conteudo dos emails
+  3. Usar esse conteudo para fazer o resumo diretamente
+
+**Quando reutilizar vs criar nova tarefa**:
+- Se o pedido e um **follow-up** de algo ja feito → Reutilizar output anterior
+- Se o pedido e algo **completamente novo** → Criar nova tarefa
+- Se o pedido precisa de **dados mais recentes** (utilizador diz "atualiza" ou "busca novamente") → Criar nova tarefa
+
 ## Como Usar
 
 Importa o modulo e usa as funcoes. O skill usa `requests` (sincrono).
@@ -28,7 +61,7 @@ Importa o modulo e usa as funcoes. O skill usa `requests` (sincrono).
 ```python
 import sys
 sys.path.insert(0, "/var/cache/skills/task-management")
-from task_client import list_tasks, get_task, create_task, update_task, update_task_status, get_task_events, list_artifacts, add_artifact
+from task_client import list_tasks, get_task, create_task, update_task, update_task_status, get_task_events, list_artifacts, get_task_output, add_artifact
 ```
 
 ## Operacoes Disponiveis
@@ -93,29 +126,24 @@ if result.get('status') == 'success':
 
 ### 3. Criar Tarefa
 
+**IMPORTANTE:** Ao criar uma tarefa, NAO perguntar titulo, tipo ou prioridade ao utilizador. Usar a descricao fornecida pelo utilizador (melhorada pelo agente) como `description`. O titulo e gerado automaticamente pelo sistema. Tipo e sempre `'default'`, prioridade e sempre `'medium'`.
+
 ```python
 import sys
 sys.path.insert(0, "/var/cache/skills/task-management")
 from task_client import create_task
 
-# Tarefa simples
-result = create_task(user_id="user-123", title="Preparar relatorio mensal")
-
-# Tarefa com detalhes
+# Utilizador disse: "cria uma tarefa para preparar o relatorio mensal"
+# O agente enriquece a descricao e cria imediatamente:
 result = create_task(
     user_id="user-123",
-    title="Enviar email ao cliente",
-    description="Confirmar reuniao de amanha as 15h",
-    priority="high",
-    kanban_column="todo"
+    description="Preparar o relatorio mensal de vendas, compilando os dados do ultimo mes e incluindo metricas de performance da equipa"
 )
 
-# Tarefa agendada
+# Utilizador disse: "preciso de enviar um email ao cliente a confirmar a reuniao"
 result = create_task(
     user_id="user-123",
-    title="Pesquisa de mercado",
-    type="deep_research",
-    scheduled_at="2025-02-01T09:00:00Z"
+    description="Enviar email ao cliente para confirmar a reuniao de amanha as 15h. Incluir agenda e pontos a discutir."
 )
 
 if result.get('status') == 'success':
@@ -125,13 +153,13 @@ if result.get('status') == 'success':
 
 **Parametros:**
 - `user_id` (obrigatorio): ID do utilizador
-- `title` (obrigatorio): Titulo da tarefa
-- `description` (opcional): Descricao detalhada
-- `type` (opcional): 'default', 'workflow', 'deep_research' (default: 'default')
-- `priority` (opcional): 'low', 'medium', 'high', 'urgent'
-- `kanban_column` (opcional): 'backlog', 'todo', 'doing', 'done', 'waiting' (default: 'backlog')
+- `description` (obrigatorio na pratica): Descricao detalhada do que o utilizador quer. O agente deve enriquecer o pedido do utilizador.
+- `title` (opcional): NAO pedir ao utilizador. Gerado automaticamente pelo sistema a partir da descricao. Enviar apenas se o agente quiser sugerir um titulo curto.
+- `type` (NAO pedir): Usar SEMPRE 'default'
+- `priority` (NAO pedir): Usar SEMPRE 'medium'
+- `kanban_column` (NAO pedir): Usar o default 'backlog'
 - `conversation_id` (opcional): ID da conversa associada
-- `scheduled_at` (opcional): Data agendada em ISO 8601
+- `scheduled_at` (opcional): Data agendada em ISO 8601 (apenas se o utilizador mencionar uma data)
 - `tenant_id` (opcional): ID do tenant
 
 ### 4. Atualizar Tarefa
@@ -241,7 +269,41 @@ if result.get('status') == 'success':
 - `artifact_kind` (opcional): Filtrar por kind ('file')
 - `tenant_id` (opcional): ID do tenant
 
-### 8. Adicionar Artefacto (Ficheiro)
+### 8. Obter Output/Resultado de uma Tarefa
+
+Use esta funcao para obter o resultado de uma tarefa concluida. Essencial para reutilizar dados sem re-executar tarefas.
+
+```python
+import sys
+sys.path.insert(0, "/var/cache/skills/task-management")
+from task_client import get_task_output
+
+# Obter o resultado de uma tarefa concluida
+result = get_task_output(user_id="user-123", task_id="TSK-001")
+
+if result.get('status') == 'success':
+    for output in result.get('outputs', []):
+        print(f"Nome: {output.get('name')}")
+        print(f"Conteudo: {output.get('content')}")
+
+# Por display_id
+result = get_task_output(user_id="user-123", task_id="TSK-005")
+```
+
+**Parametros:**
+- `user_id` (obrigatorio): ID do utilizador
+- `task_id` (obrigatorio): UUID ou display_id da tarefa
+- `tenant_id` (opcional): ID do tenant
+
+**Retorno:**
+- `outputs` (lista): Lista de outputs, cada um com:
+  - `name`: Nome do artefacto de output
+  - `content`: Conteudo completo do resultado (texto, JSON, etc.)
+  - `storage_url`: URL se armazenado externamente
+  - `metadata`: Informacoes adicionais (tipo de output, resumo, confianca)
+  - `version`: Versao do output (pode haver multiplas versoes se re-executado)
+
+### 9. Adicionar Artefacto (Ficheiro)
 
 ```python
 import sys
@@ -320,12 +382,10 @@ import sys
 sys.path.insert(0, "/var/cache/skills/task-management")
 from task_client import create_task, add_artifact
 
-# 1. Criar tarefa
+# 1. Criar tarefa (sem pedir titulo/tipo/prioridade ao utilizador)
 result = create_task(
     user_id="user-123",
-    title="Analisar documento do cliente",
-    description="Rever proposta comercial e preparar feedback",
-    priority="high"
+    description="Analisar a proposta comercial do cliente XYZ e preparar feedback detalhado com pontos fortes e areas de melhoria"
 )
 
 if result.get('status') == 'success':
@@ -342,11 +402,40 @@ if result.get('status') == 'success':
     )
 ```
 
+### Reutilizar resultado de tarefa anterior (follow-up):
+
+```python
+import sys
+sys.path.insert(0, "/var/cache/skills/task-management")
+from task_client import list_tasks, get_task_output
+
+# 1. Utilizador pediu "faz um resumo dos emails" (ja tinha buscado emails antes)
+# Primeiro, verificar se ja existe tarefa com os emails
+completed = list_tasks(user_id="user-123", status="completed")
+
+if completed.get('status') == 'success':
+    # Procurar tarefa relevante (ex: que tenha "email" no titulo)
+    email_task = None
+    for task in completed.get('tasks', []):
+        if 'email' in (task.get('title', '') or '').lower():
+            email_task = task
+            break
+
+    if email_task:
+        # 2. Obter o output (conteudo dos emails)
+        output = get_task_output(user_id="user-123", task_id=email_task['id'])
+        if output.get('status') == 'success' and output.get('total', 0) > 0:
+            # 3. Usar o conteudo para gerar resumo (sem re-executar tarefa!)
+            email_content = output['outputs'][0].get('content')
+            # ... usar email_content para gerar o resumo
+```
+
 ## Exemplos de Perguntas do Utilizador
 
 - "Quais sao as minhas tarefas pendentes?"
 - "Que tarefas tenho em execucao?"
-- "Cria uma tarefa para preparar o relatorio mensal"
+- "Cria uma tarefa para preparar o relatorio mensal" → Criar imediatamente sem perguntar mais nada
+- "Preciso de fazer uma analise de mercado" → Criar tarefa com descricao enriquecida
 - "Marca a tarefa TSK-001 como concluida"
 - "Cancela a tarefa de pesquisa"
 - "Mostra-me os detalhes da tarefa TSK-005"
@@ -356,6 +445,9 @@ if result.get('status') == 'success':
 - "Qual e o historico de eventos da tarefa TSK-003?"
 - "Quais tarefas preciso de completar esta semana?"
 - "Agenda esta tarefa para amanha as 9h"
+- "Faz um resumo dos emails que buscastes" → Reutilizar output da tarefa anterior (NAO re-buscar)
+- "Qual foi o resultado da tarefa X?" → Usar `get_task_output`
+- "Agora com esses dados, cria um relatorio" → Reutilizar output anterior
 
 ## Estrutura de Dados
 
@@ -403,7 +495,7 @@ if result.get('status') == 'success':
     "id": "artifact-uuid",
     "task_id": "task-uuid",
     "name": "relatorio.pdf",
-    "type": "input_document",              # Tipo: input_document, output, reference, plan
+    "type": "input_document",              # Tipo: input_document, output, output_artifact, reference, plan
     "artifact_kind": "file",
     "content": null,                       # Conteudo textual (ou null se externo)
     "storage_url": "https://...",          # URL do ficheiro (ou null se inline)

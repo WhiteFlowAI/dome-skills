@@ -11,11 +11,12 @@ Requisitos: pip install requests
 Uso CLI:
     python task_client.py list_tasks <user_id> [--status=...] [--type=...] [--limit=20] [--tenant_id=...]
     python task_client.py get_task <user_id> <task_id> [--tenant_id=...]
-    python task_client.py create_task <user_id> <title> [--description=...] [--type=...] [--priority=...] [--tenant_id=...]
+    python task_client.py create_task <user_id> <description> [--title=...] [--tenant_id=...]
     python task_client.py update_task <user_id> <task_id> [--title=...] [--description=...] [--priority=...] [--tenant_id=...]
     python task_client.py update_task_status <user_id> <task_id> <status> [--tenant_id=...]
     python task_client.py get_task_events <user_id> <task_id> [--limit=50] [--tenant_id=...]
     python task_client.py list_artifacts <user_id> <task_id> [--type=...] [--tenant_id=...]
+    python task_client.py get_task_output <user_id> <task_id> [--tenant_id=...]
     python task_client.py add_artifact <user_id> <task_id> <name> <type> [--content=...] [--storage_url=...] [--mime_type=...] [--tenant_id=...]
 """
 import json
@@ -381,10 +382,10 @@ def get_task(
 
 def create_task(
     user_id: str,
-    title: str,
-    description: Optional[str] = None,
+    description: str,
+    title: Optional[str] = None,
     type: str = "default",
-    priority: Optional[str] = None,
+    priority: str = "medium",
     kanban_column: str = "backlog",
     conversation_id: Optional[str] = None,
     scheduled_at: Optional[str] = None,
@@ -393,42 +394,45 @@ def create_task(
     """
     Cria uma nova tarefa.
 
+    O campo principal e a descricao (o que o utilizador quer que seja feito).
+    O titulo e gerado automaticamente pelo sistema a partir da descricao.
+    Tipo e sempre 'default' e prioridade e sempre 'medium' - NAO pedir ao utilizador.
+
     Args:
         user_id: ID do utilizador
-        title: Titulo da tarefa (obrigatorio)
-        description: Descricao detalhada da tarefa (opcional)
-        type: Tipo de tarefa: 'default', 'workflow', 'deep_research' (default: 'default')
-        priority: Prioridade: 'low', 'medium', 'high', 'urgent' (opcional)
-        kanban_column: Coluna kanban: 'backlog', 'todo', 'doing', 'done', 'waiting' (default: 'backlog')
+        description: Descricao detalhada do que o utilizador quer (obrigatorio).
+                     O agente deve enriquecer e melhorar o texto fornecido pelo utilizador.
+        title: Titulo curto (opcional - gerado automaticamente pelo sistema se nao fornecido)
+        type: Tipo de tarefa (default: 'default'). NAO alterar.
+        priority: Prioridade (default: 'medium'). NAO alterar.
+        kanban_column: Coluna kanban (default: 'backlog')
         conversation_id: ID da conversa associada (opcional)
-        scheduled_at: Data agendada no formato ISO 8601 (opcional)
+        scheduled_at: Data agendada no formato ISO 8601 (opcional, apenas se o utilizador mencionar)
         tenant_id: ID do tenant (opcional)
 
     Returns:
         Dicionario com a tarefa criada
 
     Exemplo:
-        result = create_task("user-123", "Preparar relatorio mensal")
-        result = create_task("user-123", "Enviar email ao cliente", description="Confirmar reuniao de amanha", priority="high")
-        result = create_task("user-123", "Pesquisa de mercado", type="deep_research", scheduled_at="2025-02-01T09:00:00Z")
+        result = create_task("user-123", description="Preparar o relatorio mensal de vendas com dados do ultimo trimestre")
+        result = create_task("user-123", description="Enviar email ao cliente para confirmar a reuniao de amanha as 15h")
     """
-    if not title:
+    if not description:
         return {
             "status": "error",
             "error_code": "INVALID_REQUEST",
-            "message": "title is required",
+            "message": "description is required",
         }
 
     body = {
-        "title": title,
+        "description": description,
         "type": type,
+        "priority": priority,
         "kanban_column": kanban_column,
     }
 
-    if description:
-        body["description"] = description
-    if priority:
-        body["priority"] = priority
+    if title:
+        body["title"] = title
     if conversation_id:
         body["conversation_id"] = conversation_id
     if scheduled_at:
@@ -744,7 +748,97 @@ def list_artifacts(
 
 
 # =============================================================================
-# TOOL 8: ADICIONAR ARTEFACTO A TAREFA
+# TOOL 8: OBTER OUTPUT/RESULTADO DE UMA TAREFA
+# =============================================================================
+
+def get_task_output(
+    user_id: str,
+    task_id: str,
+    tenant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Obtem o resultado/output de uma tarefa concluida.
+
+    Retorna os artefactos de tipo 'output_artifact' que contem o conteudo
+    gerado pela execucao da tarefa. Usar esta funcao para consultar resultados
+    de tarefas anteriores sem precisar de re-executar.
+
+    Args:
+        user_id: ID do utilizador
+        task_id: ID da tarefa (UUID ou display_id, ex: 'TSK-001')
+        tenant_id: ID do tenant (opcional)
+
+    Returns:
+        Dicionario com os outputs da tarefa. Cada output tem:
+        - name: Nome do artefacto
+        - content: Conteudo completo do resultado (texto, JSON, etc.)
+        - storage_url: URL se armazenado externamente
+        - metadata: Informacoes adicionais (tipo de output, resumo, etc.)
+
+    Exemplo:
+        # Obter resultado de uma tarefa que buscou emails
+        result = get_task_output("user-123", "TSK-001")
+        if result.get('status') == 'success':
+            for output in result.get('outputs', []):
+                print(f"Output: {output.get('name')}")
+                print(f"Conteudo: {output.get('content')}")
+    """
+    if not task_id:
+        return {
+            "status": "error",
+            "error_code": "INVALID_REQUEST",
+            "message": "task_id is required",
+        }
+
+    safe_task_id = quote(task_id, safe='')
+
+    # Buscar artefactos do tipo output_artifact
+    query_params = {
+        "type": "output_artifact",
+    }
+
+    result = _make_get_request(
+        path=f"/internal/tasks/{safe_task_id}/artifacts",
+        user_id=user_id,
+        query=query_params,
+        tenant_id=tenant_id,
+    )
+
+    if result.get("status") == "error":
+        return result
+
+    artifacts_data = result.get("data", [])
+
+    if isinstance(artifacts_data, list) and len(artifacts_data) > 0:
+        outputs = []
+        for artifact in artifacts_data:
+            outputs.append({
+                "id": artifact.get("id"),
+                "name": artifact.get("name"),
+                "content": artifact.get("content"),
+                "storage_url": artifact.get("storage_url"),
+                "mime_type": artifact.get("mime_type"),
+                "metadata": artifact.get("metadata"),
+                "version": artifact.get("version"),
+                "created_at": artifact.get("created_at"),
+            })
+
+        return {
+            "status": "success",
+            "total": len(outputs),
+            "outputs": outputs,
+        }
+
+    return {
+        "status": "success",
+        "total": 0,
+        "outputs": [],
+        "message": "No outputs found for this task. The task may not have completed yet or may not produce output artifacts.",
+    }
+
+
+# =============================================================================
+# TOOL 9: ADICIONAR ARTEFACTO A TAREFA
 # =============================================================================
 
 def add_artifact(
@@ -866,6 +960,8 @@ def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
         "task_management_get_task_events": get_task_events,
         "list_artifacts": list_artifacts,
         "task_management_list_artifacts": list_artifacts,
+        "get_task_output": get_task_output,
+        "task_management_get_task_output": get_task_output,
         "add_artifact": add_artifact,
         "task_management_add_artifact": add_artifact,
     }
@@ -876,7 +972,8 @@ def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
             "available_tools": [
                 "list_tasks", "get_task", "create_task",
                 "update_task", "update_task_status",
-                "get_task_events", "list_artifacts", "add_artifact",
+                "get_task_events", "list_artifacts", "get_task_output",
+                "add_artifact",
             ],
         }
 
@@ -901,11 +998,12 @@ def print_usage():
     print("\nTools disponiveis:")
     print("  list_tasks <user_id> [--status=...] [--type=...] [--limit=20] [--tenant_id=...]")
     print("  get_task <user_id> <task_id> [--tenant_id=...]")
-    print("  create_task <user_id> <title> [--description=...] [--type=...] [--priority=...] [--tenant_id=...]")
+    print("  create_task <user_id> <description> [--title=...] [--tenant_id=...]")
     print("  update_task <user_id> <task_id> [--title=...] [--description=...] [--priority=...] [--tenant_id=...]")
     print("  update_task_status <user_id> <task_id> <status> [--tenant_id=...]")
     print("  get_task_events <user_id> <task_id> [--limit=50] [--tenant_id=...]")
     print("  list_artifacts <user_id> <task_id> [--type=...] [--tenant_id=...]")
+    print("  get_task_output <user_id> <task_id> [--tenant_id=...]")
     print("  add_artifact <user_id> <task_id> <name> <type> [--content=...] [--storage_url=...] [--mime_type=...] [--tenant_id=...]")
 
 
@@ -984,15 +1082,15 @@ def main():
 
     elif tool_name in ["create_task", "task_management_create_task"]:
         if len(positional) < 2:
-            print("Erro: user_id e title obrigatorios")
+            print("Erro: user_id e description obrigatorios")
             sys.exit(1)
 
         result = create_task(
             user_id=positional[0],
-            title=positional[1],
-            description=named.get("description"),
+            description=positional[1],
+            title=named.get("title"),
             type=named.get("type", "default"),
-            priority=named.get("priority"),
+            priority=named.get("priority", "medium"),
             kanban_column=named.get("kanban_column", "backlog"),
             conversation_id=named.get("conversation_id"),
             scheduled_at=named.get("scheduled_at"),
@@ -1063,6 +1161,17 @@ def main():
             tenant_id=named.get("tenant_id"),
         )
 
+    elif tool_name in ["get_task_output", "task_management_get_task_output"]:
+        if len(positional) < 2:
+            print("Erro: user_id e task_id obrigatorios")
+            sys.exit(1)
+
+        result = get_task_output(
+            user_id=positional[0],
+            task_id=positional[1],
+            tenant_id=named.get("tenant_id"),
+        )
+
     elif tool_name in ["add_artifact", "task_management_add_artifact"]:
         if len(positional) < 4:
             print("Erro: user_id, task_id, name e type obrigatorios")
@@ -1099,7 +1208,8 @@ def main():
         print("Erro: Tool '{}' nao reconhecida".format(tool_name))
         print("\nTools disponiveis:")
         print("  list_tasks, get_task, create_task, update_task,")
-        print("  update_task_status, get_task_events, list_artifacts, add_artifact")
+        print("  update_task_status, get_task_events, list_artifacts,")
+        print("  get_task_output, add_artifact")
         sys.exit(1)
 
     print_result(result)
